@@ -133,3 +133,8 @@ C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\obj\Debug\net8.0\E
 C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\obj\Debug\net8.0\ExpenseTrackerAPI.dll
 C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\obj\Debug\net8.0\refint\ExpenseTrackerAPI.dll
 C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\obj\Debug\net8.0\ExpenseTrackerAPI.pdb
+C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\bin\Debug\net8.0\ExpenseTrackerAPI.deps.json
+C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\bin\Debug\net8.0\ExpenseTrackerAPI.runtimeconfig.json
+C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\bin\Debug\net8.0\ExpenseTrackerAPI.pdb
+C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\obj\Debug\net8.0\ExpenseTrackerAPI.genruntimeconfig.cache
+C:\Users\Andrii\Desktop\projekt na praktyki\ExpenseTrackerAPI\obj\Debug\net8.0\ref\ExpenseTrackerAPI.dll
