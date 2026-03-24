@@ -37,9 +37,9 @@ namespace ExpenseTrackerAPI.Services
         public async Task<IEnumerable<Expense>> GetUserExpensesAsync(int userId)
         {
             return await _context.Expenses
+                .AsNoTracking()
                 .Where(e => e.UserId == userId)
                 .Include(e => e.Category)
-                .Include(e => e.User)
                 .OrderByDescending(e => e.Date)
                 .ToListAsync();
         }
@@ -50,9 +50,9 @@ namespace ExpenseTrackerAPI.Services
         public async Task<IEnumerable<Expense>> GetUserExpensesByCategoryAsync(int userId, int categoryId)
         {
             return await _context.Expenses
+                .AsNoTracking()
                 .Where(e => e.UserId == userId && e.CategoryId == categoryId)
                 .Include(e => e.Category)
-                .Include(e => e.User)
                 .OrderByDescending(e => e.Date)
                 .ToListAsync();
         }
@@ -66,11 +66,11 @@ namespace ExpenseTrackerAPI.Services
             var adjustedEndDate = endDate.AddDays(1).AddTicks(-1);
 
             return await _context.Expenses
+                .AsNoTracking()
                 .Where(e => e.UserId == userId && 
                            e.Date >= startDate && 
                            e.Date <= adjustedEndDate)
                 .Include(e => e.Category)
-                .Include(e => e.User)
                 .OrderByDescending(e => e.Date)
                 .ToListAsync();
         }
@@ -85,9 +85,9 @@ namespace ExpenseTrackerAPI.Services
             DateTime? endDate = null)
         {
             var query = _context.Expenses
+                .AsNoTracking()
                 .Where(e => e.UserId == userId)
                 .Include(e => e.Category)
-                .Include(e => e.User)
                 .AsQueryable();
 
             // Filter by category if provided
@@ -120,7 +120,7 @@ namespace ExpenseTrackerAPI.Services
         public async Task<IEnumerable<Expense>> GetAllExpensesAsync()
         {
             return await _context.Expenses
-                .Include(e => e.User)
+                .AsNoTracking()
                 .Include(e => e.Category)
                 .ToListAsync();
         }
@@ -131,7 +131,7 @@ namespace ExpenseTrackerAPI.Services
         public async Task<Expense?> GetExpenseByIdAsync(int id)
         {
             return await _context.Expenses
-                .Include(e => e.User)
+                .AsNoTracking()
                 .Include(e => e.Category)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
@@ -142,8 +142,8 @@ namespace ExpenseTrackerAPI.Services
         public async Task<Expense?> GetUserExpenseByIdAsync(int userId, int expenseId)
         {
             return await _context.Expenses
+                .AsNoTracking()
                 .Include(e => e.Category)
-                .Include(e => e.User)
                 .FirstOrDefaultAsync(e => e.Id == expenseId && e.UserId == userId);
         }
 
@@ -255,6 +255,7 @@ namespace ExpenseTrackerAPI.Services
         {
             // Get all user expenses with category info
             var expenses = await _context.Expenses
+                .AsNoTracking()
                 .Where(e => e.UserId == userId)
                 .Include(e => e.Category)
                 .OrderByDescending(e => e.Date)
