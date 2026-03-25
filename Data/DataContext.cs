@@ -24,6 +24,9 @@ namespace ExpenseTrackerAPI.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
                 entity.Property(e => e.PasswordHash).IsRequired();
+                entity.Property(e => e.FirstName).HasMaxLength(100);
+                entity.Property(e => e.LastName).HasMaxLength(100);
+                entity.Property(e => e.Phone).HasMaxLength(20);
                 entity.HasMany(u => u.Expenses)
                     .WithOne(e => e.User)
                     .HasForeignKey(e => e.UserId)

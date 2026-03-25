@@ -1,15 +1,15 @@
-namespace ExpenseTrackerAPI.Models
+namespace ExpenseTrackerAPI.DTOs
 {
-    public class User
+    /// <summary>
+    /// User Data Transfer Object
+    /// Contains user profile information (excluding sensitive data like password hash)
+    /// </summary>
+    public class UserDto
     {
         public int Id { get; set; }
         public string? Email { get; set; }
-        public string? PasswordHash { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? Phone { get; set; }
-
-        // Navigation property
-        public virtual ICollection<Expense> Expenses { get; set; } = new List<Expense>();
     }
 }
