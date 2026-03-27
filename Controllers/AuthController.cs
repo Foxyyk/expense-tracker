@@ -66,11 +66,14 @@ namespace ExpenseTrackerAPI.Controllers
                     });
                 }
 
-                // Create new user with hashed password
+                // Create new user with hashed password and profile data
                 var user = new User
                 {
                     Email = request.Email,
-                    PasswordHash = _authService.HashPassword(request.Password)
+                    PasswordHash = _authService.HashPassword(request.Password),
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    Phone = request.Phone
                 };
 
                 _context.Users.Add(user);
@@ -86,7 +89,14 @@ namespace ExpenseTrackerAPI.Controllers
                     Success = true,
                     Message = "User registered successfully",
                     Token = token,
-                    User = new UserDto { Id = user.Id, Email = user.Email }
+                    User = new UserDto 
+                    { 
+                        Id = user.Id, 
+                        Email = user.Email,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Phone = user.Phone
+                    }
                 });
             }
             catch (Exception ex)
@@ -141,7 +151,14 @@ namespace ExpenseTrackerAPI.Controllers
                     Success = true,
                     Message = "Login successful",
                     Token = token,
-                    User = new UserDto { Id = user.Id, Email = user.Email }
+                    User = new UserDto 
+                    { 
+                        Id = user.Id, 
+                        Email = user.Email,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Phone = user.Phone
+                    }
                 });
             }
             catch (Exception ex)

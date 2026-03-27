@@ -8,6 +8,7 @@ namespace ExpenseTrackerAPI.Models
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? Phone { get; set; }
+        public string? ProfileImageUrl { get; set; }
 
         // Navigation property
         public virtual ICollection<Expense> Expenses { get; set; } = new List<Expense>();

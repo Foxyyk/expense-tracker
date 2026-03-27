@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using ExpenseTrackerAPI.Models;
 using ExpenseTrackerAPI.Services;
+using ExpenseTrackerAPI.Data;
+using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace ExpenseTrackerAPI.Controllers
 {
@@ -15,40 +18,71 @@ namespace ExpenseTrackerAPI.Controllers
     {
         private readonly ICategoryService _categoryService;
         private readonly ILogger<CategoriesController> _logger;
+        private readonly DataContext _context;
 
-        public CategoriesController(ICategoryService categoryService, ILogger<CategoriesController> logger)
+        public CategoriesController(ICategoryService categoryService, ILogger<CategoriesController> logger, DataContext context)
         {
             _categoryService = categoryService;
             _logger = logger;
+            _context = context;
         }
 
         /// <summary>
-        /// Get all available expense categories
-        /// No authentication required - categories are shared resources
+        /// Get current authenticated user's ID from JWT claims
         /// </summary>
-        /// <returns>List of all categories</returns>
-        /// <response code="200">Returns list of categories</response>
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirst("sub") ?? User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+            {
+                _logger.LogError("No user ID claim found in token. Available claims: " + string.Join(", ", User.Claims.Select(c => c.Type)));
+                throw new UnauthorizedAccessException("No user ID claim found in token");
+            }
+
+            if (int.TryParse(userIdClaim.Value, out var userId))
+                return userId;
+
+            _logger.LogError($"Could not parse user ID from claim value: {userIdClaim.Value}");
+            throw new UnauthorizedAccessException("Invalid user ID in token");
+        }
+
+        /// <summary>
+        /// Get all available expense categories with totals for current user
+        /// Filters expenses by authenticated user to show accurate category totals
+        /// </summary>
+        /// <returns>List of all categories with user's expense counts and total amounts</returns>
+        /// <response code="200">Returns list of categories with totals for current user</response>
+        /// <response code="401">Unauthorized - requires authentication</response>
         /// <response code="500">Server error</response>
         [HttpGet]
-        [AllowAnonymous]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<CategoryResponse>>> GetCategories()
         {
             try
             {
+                var userId = GetCurrentUserId();
                 var categories = await _categoryService.GetAllCategoriesAsync();
                 
-                // Map to response DTOs with expense counts
+                // Map to response DTOs with expense counts and total amounts
+                // Filter expenses to only include current user's expenses
                 var response = categories.Select(c => new CategoryResponse
                 {
                     Id = c.Id,
                     Name = c.Name ?? string.Empty,
-                    ExpenseCount = c.Expenses.Count
+                    ExpenseCount = c.Expenses.Count(e => e.UserId == userId),  // ✅ Filter by UserId
+                    TotalAmount = c.Expenses.Where(e => e.UserId == userId).Sum(e => e.Amount)  // ✅ Filter by UserId
                 }).ToList();
 
-                _logger.LogInformation($"Retrieved {response.Count} categories");
+                _logger.LogInformation($"Retrieved {response.Count} categories with totals for user {userId}");
                 return Ok(response);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to categories");
+                return Unauthorized(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -58,23 +92,26 @@ namespace ExpenseTrackerAPI.Controllers
         }
 
         /// <summary>
-        /// Get a specific category by ID with all associated expenses
-        /// No authentication required - categories are shared resources
+        /// Get a specific category by ID with all associated expenses for current user
+        /// No authentication required - categories are shared, but expenses are filtered by user
         /// </summary>
         /// <param name="id">Category ID</param>
-        /// <returns>Category details with expenses and total amount</returns>
+        /// <returns>Category details with current user's expenses and total amount</returns>
         /// <response code="200">Returns the category</response>
+        /// <response code="401">Unauthorized - requires authentication</response>
         /// <response code="404">Category not found</response>
         /// <response code="500">Server error</response>
         [HttpGet("{id}")]
-        [AllowAnonymous]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<CategoryDetailResponse>> GetCategory(int id)
         {
             try
             {
+                var userId = GetCurrentUserId();
                 var category = await _categoryService.GetCategoryByIdAsync(id);
                 if (category == null)
                 {
@@ -82,16 +119,24 @@ namespace ExpenseTrackerAPI.Controllers
                     return NotFound(new { error = "Category not found" });
                 }
 
+                // Filter expenses to only include current user's expenses
+                var userExpenses = category.Expenses.Where(e => e.UserId == userId).ToList();  // ✅ Filter by UserId
+                
                 var response = new CategoryDetailResponse
                 {
                     Id = category.Id,
                     Name = category.Name ?? string.Empty,
-                    Expenses = category.Expenses,
-                    TotalAmount = category.Expenses.Sum(e => e.Amount)
+                    Expenses = userExpenses,  // ✅ Only include current user's expenses
+                    TotalAmount = userExpenses.Sum(e => e.Amount)  // ✅ Sum only current user's expenses
                 };
 
-                _logger.LogInformation($"Retrieved category {id}");
+                _logger.LogInformation($"Retrieved category {id} with {userExpenses.Count} expenses for user {userId}");
                 return Ok(response);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access to category");
+                return Unauthorized(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -138,7 +183,8 @@ namespace ExpenseTrackerAPI.Controllers
                 {
                     Id = created.Id,
                     Name = created.Name ?? string.Empty,
-                    ExpenseCount = 0
+                    ExpenseCount = 0,
+                    TotalAmount = 0m
                 };
 
                 _logger.LogInformation($"Category created: {created.Name}");
@@ -225,14 +271,16 @@ namespace ExpenseTrackerAPI.Controllers
 
         /// <summary>
         /// Delete an expense category
-        /// Requires authentication (admin or elevated permissions recommended)
-        /// Cannot delete categories that have associated expenses
+        /// Requires authentication
+        /// If category has user expenses, returns 409 Conflict (use force=true to confirm deletion)
         /// </summary>
         /// <param name="id">Category ID to delete</param>
+        /// <param name="force">Set to true to delete category even with user expenses</param>
         /// <response code="204">Category deleted successfully</response>
-        /// <response code="400">Category has associated expenses</response>
+        /// <response code="400">Invalid request</response>
         /// <response code="401">Unauthorized - requires authentication</response>
         /// <response code="404">Category not found</response>
+        /// <response code="409">Category has user expenses (confirm with force=true)</response>
         /// <response code="500">Server error</response>
         [HttpDelete("{id}")]
         [Authorize]
@@ -240,30 +288,68 @@ namespace ExpenseTrackerAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> DeleteCategory(int id)
+        public async Task<IActionResult> DeleteCategory(int id, [FromQuery] bool force = false)
         {
             try
             {
-                var success = await _categoryService.DeleteCategoryAsync(id);
-
-                if (!success)
+                _logger.LogInformation($"Attempting to delete category {id} (force={force})");
+                
+                var userId = GetCurrentUserId();
+                _logger.LogInformation($"User {userId} attempting to delete category {id}");
+                
+                // Check category exists
+                var categoryExists = await _context.Categories
+                    .FirstOrDefaultAsync(c => c.Id == id);
+                
+                if (categoryExists == null)
                 {
                     _logger.LogWarning($"Category {id} not found for deletion");
                     return NotFound(new { error = "Category not found" });
                 }
 
-                _logger.LogInformation($"Category {id} deleted");
+                _logger.LogInformation($"Category {id} found: {categoryExists.Name}");
+                
+                // Check if user has expenses in this category
+                var userExpenseCount = await _categoryService.GetUserExpenseCountInCategoryAsync(id, userId);
+                
+                _logger.LogInformation($"User {userId} has {userExpenseCount} expenses in category {id}");
+                
+                // If user has expenses and not forced, ask for confirmation
+                if (userExpenseCount > 0 && !force)
+                {
+                    var message = $"Category '{categoryExists.Name}' contains {userExpenseCount} of your expense(s). Confirm deletion to remove category.";
+                    _logger.LogWarning($"User {userId} attempted to delete category with expenses without confirmation: {message}");
+                    return Conflict(new { 
+                        error = message,
+                        hasUserExpenses = true,
+                        expenseCount = userExpenseCount,
+                        categoryName = categoryExists.Name
+                    });
+                }
+
+                // Delete the category
+                _logger.LogInformation($"Deleting category {id}...");
+                var success = await _categoryService.DeleteCategoryAsync(id);
+                
+                if (!success)
+                {
+                    _logger.LogWarning($"Category {id} not found for deletion (after check)");
+                    return NotFound(new { error = "Category not found" });
+                }
+
+                _logger.LogInformation($"Category {id} deleted successfully by user {userId} (force={force})");
                 return NoContent();
             }
-            catch (InvalidOperationException ex)
+            catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning($"Cannot delete category: {ex.Message}");
-                return BadRequest(new { error = ex.Message });
+                _logger.LogWarning(ex, "Unauthorized access attempted");
+                return Unauthorized(new { error = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting category");
+                _logger.LogError(ex, $"Error deleting category {id}");
                 return StatusCode(500, new { error = "An error occurred while deleting the category" });
             }
         }

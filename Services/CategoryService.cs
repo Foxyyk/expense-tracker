@@ -15,6 +15,7 @@ namespace ExpenseTrackerAPI.Services
         Task<bool> UpdateCategoryAsync(int id, Category category);
         Task<bool> DeleteCategoryAsync(int id);
         Task<int> GetCategoryExpenseCountAsync(int categoryId);
+        Task<int> GetUserExpenseCountInCategoryAsync(int categoryId, int userId);
     }
 
     /// <summary>
@@ -32,11 +33,12 @@ namespace ExpenseTrackerAPI.Services
         }
 
         /// <summary>
-        /// Get all categories from the database
+        /// Get all categories from the database with expenses included
         /// </summary>
         public async Task<IEnumerable<Category>> GetAllCategoriesAsync()
         {
             return await _context.Categories
+                .Include(c => c.Expenses)
                 .OrderBy(c => c.Name)
                 .ToListAsync();
         }
@@ -110,22 +112,30 @@ namespace ExpenseTrackerAPI.Services
         }
 
         /// <summary>
-        /// Delete a category (only if it has no expenses)
+        /// Delete a category (validation should be done by caller)
+        /// Automatically deletes all expenses in the category first
         /// </summary>
         public async Task<bool> DeleteCategoryAsync(int id)
         {
             var category = await _context.Categories
-                .Include(c => c.Expenses)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (category == null)
                 return false;
 
-            // Prevent deleting category with expenses (database constraint)
-            if (category.Expenses.Any())
-                throw new InvalidOperationException(
-                    $"Cannot delete category '{category.Name}' because it has {category.Expenses.Count} associated expenses");
+            // Delete all expenses associated with this category first (from all users)
+            var expensesInCategory = await _context.Expenses
+                .Where(e => e.CategoryId == id)
+                .ToListAsync();
+            
+            if (expensesInCategory.Any())
+            {
+                _context.Expenses.RemoveRange(expensesInCategory);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Deleted {expensesInCategory.Count} expenses before deleting category {id}");
+            }
 
+            // Now delete the category
             _context.Categories.Remove(category);
             await _context.SaveChangesAsync();
 
@@ -140,6 +150,15 @@ namespace ExpenseTrackerAPI.Services
         {
             return await _context.Expenses
                 .CountAsync(e => e.CategoryId == categoryId);
+        }
+
+        /// <summary>
+        /// Get the count of expenses for a specific user in a category
+        /// </summary>
+        public async Task<int> GetUserExpenseCountInCategoryAsync(int categoryId, int userId)
+        {
+            return await _context.Expenses
+                .CountAsync(e => e.CategoryId == categoryId && e.UserId == userId);
         }
     }
 }

@@ -41,6 +41,11 @@ namespace ExpenseTrackerAPI.Models
         /// Number of expenses in this category
         /// </summary>
         public int ExpenseCount { get; set; }
+
+        /// <summary>
+        /// Total amount of all expenses in this category
+        /// </summary>
+        public decimal TotalAmount { get; set; }
     }
 
     /// <summary>
