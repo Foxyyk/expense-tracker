@@ -95,7 +95,8 @@ namespace ExpenseTrackerAPI.Controllers
                         Email = user.Email,
                         FirstName = user.FirstName,
                         LastName = user.LastName,
-                        Phone = user.Phone
+                        Phone = user.Phone,
+                        ProfileImageUrl = user.ProfileImageUrl
                     }
                 });
             }
@@ -157,7 +158,8 @@ namespace ExpenseTrackerAPI.Controllers
                         Email = user.Email,
                         FirstName = user.FirstName,
                         LastName = user.LastName,
-                        Phone = user.Phone
+                        Phone = user.Phone,
+                        ProfileImageUrl = user.ProfileImageUrl
                     }
                 });
             }
@@ -200,7 +202,8 @@ namespace ExpenseTrackerAPI.Controllers
                     Email = user.Email ?? string.Empty,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
-                    Phone = user.Phone
+                    Phone = user.Phone,
+                    ProfileImageUrl = user.ProfileImageUrl
                 };
 
                 return Ok(userDto);
@@ -269,6 +272,8 @@ namespace ExpenseTrackerAPI.Controllers
                     user.LastName = request.LastName;
                 if (!string.IsNullOrWhiteSpace(request.Phone))
                     user.Phone = request.Phone;
+                if (!string.IsNullOrWhiteSpace(request.ProfileImageUrl))
+                    user.ProfileImageUrl = request.ProfileImageUrl;
 
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
@@ -279,7 +284,8 @@ namespace ExpenseTrackerAPI.Controllers
                     Email = user.Email ?? string.Empty,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
-                    Phone = user.Phone
+                    Phone = user.Phone,
+                    ProfileImageUrl = user.ProfileImageUrl
                 };
 
                 _logger.LogInformation($"User profile updated: {user.Email}");

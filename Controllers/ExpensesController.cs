@@ -158,9 +158,6 @@ namespace ExpenseTrackerAPI.Controllers
                 if (request == null)
                     return BadRequest(new { error = "Request body is required" });
 
-                if (string.IsNullOrWhiteSpace(request.Description))
-                    return BadRequest(new { error = "Description is required" });
-
                 if (request.Amount <= 0)
                     return BadRequest(new { error = "Amount must be greater than 0" });
 
@@ -353,6 +350,40 @@ namespace ExpenseTrackerAPI.Controllers
             {
                 _logger.LogError(ex, "Error retrieving monthly summary");
                 return StatusCode(500, new { error = "An error occurred while retrieving monthly summary" });
+            }
+        }
+
+        /// <summary>
+        /// Get category expense summary for authenticated user
+        /// Groups all expenses by category and returns total per category
+        /// Useful for generating category breakdown charts
+        /// </summary>
+        /// <returns>Category summary with totals and percentages</returns>
+        /// <response code="200">Returns category expense summary</response>
+        /// <response code="401">Unauthorized - invalid or missing token</response>
+        [HttpGet("summary/category")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<CategorySummaryResponse>> GetCategorySummary()
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+
+                var summary = await _expenseService.GetCategorySummaryAsync(userId);
+
+                _logger.LogInformation($"User {userId} retrieved category summary with {summary.Categories.Count} categories");
+                return Ok(summary);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access attempt");
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving category summary");
+                return StatusCode(500, new { error = "An error occurred while retrieving category summary" });
             }
         }
 

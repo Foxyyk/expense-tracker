@@ -6,9 +6,9 @@ namespace ExpenseTrackerAPI.Models
     public class CreateExpenseRequest
     {
         /// <summary>
-        /// Expense description (required)
+        /// Expense description (optional)
         /// </summary>
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
 
         /// <summary>
         /// Expense amount in currency (required, must be > 0)
@@ -123,5 +123,52 @@ namespace ExpenseTrackerAPI.Models
         /// Average monthly spend
         /// </summary>
         public decimal AverageMonthly { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for category expense summary (single category)
+    /// </summary>
+    public class CategorySummary
+    {
+        /// <summary>
+        /// Category ID
+        /// </summary>
+        public int CategoryId { get; set; }
+
+        /// <summary>
+        /// Category name
+        /// </summary>
+        public string CategoryName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Total amount spent in this category
+        /// </summary>
+        public decimal Total { get; set; }
+
+        /// <summary>
+        /// Number of expenses in this category
+        /// </summary>
+        public int ExpenseCount { get; set; }
+
+        /// <summary>
+        /// Percentage of total spending
+        /// </summary>
+        public decimal Percentage { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for category expense summary response (multiple categories)
+    /// </summary>
+    public class CategorySummaryResponse
+    {
+        /// <summary>
+        /// List of category summaries
+        /// </summary>
+        public List<CategorySummary> Categories { get; set; } = new List<CategorySummary>();
+
+        /// <summary>
+        /// Grand total across all categories
+        /// </summary>
+        public decimal GrandTotal { get; set; }
     }
 }

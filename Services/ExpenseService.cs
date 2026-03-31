@@ -17,6 +17,7 @@ namespace ExpenseTrackerAPI.Services
         Task<bool> UpdateExpenseAsync(int id, Expense expense);
         Task<bool> DeleteExpenseAsync(int id);
         Task<MonthlySummaryResponse> GetMonthlySummaryAsync(int userId);
+        Task<CategorySummaryResponse> GetCategorySummaryAsync(int userId);
         Task<string> ExportToCsvAsync(int userId);
         // Legacy methods (deprecated - use filtered versions instead)
         Task<IEnumerable<Expense>> GetAllExpensesAsync();
@@ -244,6 +245,47 @@ namespace ExpenseTrackerAPI.Services
                 Months = monthlyGroups,
                 GrandTotal = grandTotal,
                 AverageMonthly = averageMonthly
+            };
+        }
+
+        /// <summary>
+        /// Get category expense summary for a user (groups expenses by category)
+        /// </summary>
+        public async Task<CategorySummaryResponse> GetCategorySummaryAsync(int userId)
+        {
+            // Get all user expenses
+            var expenses = await _context.Expenses
+                .AsNoTracking()
+                .Where(e => e.UserId == userId)
+                .Include(e => e.Category)
+                .ToListAsync();
+
+            // Group by category
+            var categoryGroups = expenses
+                .GroupBy(e => new { e.CategoryId, e.Category.Name })
+                .Select(g => new { g.Key.CategoryId, g.Key.Name, Total = g.Sum(e => e.Amount), Count = g.Count() })
+                .ToList();
+
+            // Calculate grand total
+            decimal grandTotal = categoryGroups.Sum(c => c.Total);
+
+            // Build category summaries with percentages
+            var categorySummaries = categoryGroups
+                .OrderByDescending(c => c.Total)
+                .Select(c => new CategorySummary
+                {
+                    CategoryId = c.CategoryId,
+                    CategoryName = c.Name ?? "Uncategorized",
+                    Total = c.Total,
+                    ExpenseCount = c.Count,
+                    Percentage = grandTotal > 0 ? Math.Round((c.Total / grandTotal) * 100, 2) : 0
+                })
+                .ToList();
+
+            return new CategorySummaryResponse
+            {
+                Categories = categorySummaries,
+                GrandTotal = grandTotal
             };
         }
 
